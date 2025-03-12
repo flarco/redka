@@ -130,6 +130,9 @@ func (c RangeCmd) rangeRank() ([]SetItem, error) {
 		c.byRank.stop,
 	}
 
+	// Apply PostgreSQL adaptations and placeholder conversion
+	query = sqlx.AdaptPostgresQuery(sqlx.ConvertPlaceholders(query))
+
 	// Execute the query.
 	rows, err := c.tx.Query(query, args...)
 	if err != nil {
@@ -180,6 +183,9 @@ func (c RangeCmd) rangeScore() ([]SetItem, error) {
 		query += " limit ?, -1"
 		args = append(args, c.offset)
 	}
+
+	// Apply PostgreSQL adaptations and placeholder conversion
+	query = sqlx.AdaptPostgresQuery(sqlx.ConvertPlaceholders(query))
 
 	// Execute the query.
 	rows, err := c.tx.Query(query, args...)

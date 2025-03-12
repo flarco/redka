@@ -19,7 +19,14 @@ type DB struct {
 // New connects to the list repository.
 // Does not create the database schema.
 func New(rw *sql.DB, ro *sql.DB) *DB {
-	d := sqlx.New(rw, ro, NewTx)
+	d := sqlx.New(rw, ro, NewTx, sqlx.DriverSQLite)
+	return &DB{d}
+}
+
+// NewWithDriver connects to the list repository with a specific driver.
+// Does not create the database schema.
+func NewWithDriver(rw *sql.DB, ro *sql.DB, driver string) *DB {
+	d := sqlx.New(rw, ro, NewTx, driver)
 	return &DB{d}
 }
 

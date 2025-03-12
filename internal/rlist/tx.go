@@ -186,6 +186,34 @@ const (
 		(select start from bounds),
 		((select stop from bounds) - (select start from bounds) + 1)`
 
+	// PostgreSQL version of sqlRange with LIMIT/OFFSET syntax
+	sqlRangePostgres = `
+	with curkey as (
+		select id from rkey
+		where key = ? and type = 2 and (etime is null or etime > ?)
+	),
+	counts as (
+		select len from rkey
+		where id = (select id from curkey)
+	),
+	bounds as (
+		select
+			case when ? < 0
+				then (select len from counts) + ?
+				else ?
+			end as start,
+			case when ? < 0
+				then (select len from counts) + ?
+				else ?
+			end as stop
+	)
+	select elem
+	from rlist
+	where kid = (select id from curkey)
+	order by pos
+	limit ((select stop from bounds) - (select start from bounds) + 1)
+	offset (select start from bounds)`
+
 	sqlSet = `
 	with curkey as (
 		select id from rkey
@@ -221,17 +249,16 @@ const (
 			end as stop
 	),
 	remain as (
-		select rowid from rlist
+		select ctid::text as rowid from rlist
 		where kid = (select id from curkey)
 		order by pos
-		limit
-			(select start from bounds),
-			((select stop from bounds) - (select start from bounds) + 1)
+		limit ((select stop from bounds) - (select start from bounds) + 1)
+		offset (select start from bounds)
 	)
 	delete from rlist
 	where
 		kid = (select id from curkey)
-		and rowid not in (select rowid from remain)`
+		and ctid::text not in (select rowid from remain)`
 )
 
 // Tx is a list repository transaction.
@@ -328,12 +355,13 @@ func (tx *Tx) InsertBefore(key string, pivot, elem any) (int, error) {
 func (tx *Tx) Len(key string) (int, error) {
 	var count int
 	args := []any{key, time.Now().UnixMilli()}
-	err := tx.tx.QueryRow(sqlLen, args...).Scan(&count)
+	query := sqlx.AdaptPostgresQuery(sqlx.ConvertPlaceholders(sqlLen))
+	err := tx.tx.QueryRow(query, args...).Scan(&count)
 	if err == sql.ErrNoRows {
 		return 0, nil
 	}
 	if err != nil {
-		return 0, err
+		return 0, sqlx.TypedError(err)
 	}
 	return count, nil
 }
@@ -399,9 +427,39 @@ func (tx *Tx) Range(key string, start, stop int) ([]core.Value, error) {
 		start, start, start,
 		stop, stop, stop,
 	}
-	rows, err := tx.tx.Query(sqlRange, args...)
+
+	// For PostgreSQL, we need to use a different query with LIMIT/OFFSET syntax
+	// instead of the SQLite LIMIT x,y syntax
+	query := `
+	with curkey as (
+		select id from rkey
+		where key = $1 and type = 2 and (etime is null or etime > $2)
+	),
+	counts as (
+		select len from rkey
+		where id = (select id from curkey)
+	),
+	bounds as (
+		select
+			case when $3 < 0
+				then (select len from counts) + $4
+				else $5
+			end as start,
+			case when $6 < 0
+				then (select len from counts) + $7
+				else $8
+			end as stop
+	)
+	select elem
+	from rlist
+	where kid = (select id from curkey)
+	order by pos
+	limit ((select stop from bounds) - (select start from bounds) + 1)
+	offset (select start from bounds)`
+
+	rows, err := tx.tx.Query(query, args...)
 	if err != nil {
-		return nil, err
+		return nil, sqlx.TypedError(err)
 	}
 	defer rows.Close()
 
@@ -439,9 +497,10 @@ func (tx *Tx) Set(key string, idx int, elem any) error {
 	}
 
 	args := []any{key, time.Now().UnixMilli(), elemb, idx}
+	query = sqlx.AdaptPostgresQuery(sqlx.ConvertPlaceholders(query))
 	out, err := tx.tx.Exec(query, args...)
 	if err != nil {
-		return err
+		return sqlx.TypedError(err)
 	}
 	n, _ := out.RowsAffected()
 	if n == 0 {
@@ -465,40 +524,108 @@ func (tx *Tx) Trim(key string, start, stop int) (int, error) {
 		start, start, start,
 		stop, stop, stop,
 	}
-	out, err := tx.tx.Exec(sqlTrim, args...)
+
+	var query string
+	if sqlx.IsPostgres() {
+		// PostgreSQL version with CTEs
+		query = `
+		with curkey as (
+			select id from rkey
+			where key = $1 and type = 2 and (etime is null or etime > $2)
+		),
+		counts as (
+			select len from rkey
+			where id = (select id from curkey)
+		),
+		bounds as (
+			select
+				case when $3 < 0
+					then (select len from counts) + $4
+					else $5
+				end as start,
+				case when $6 < 0
+					then (select len from counts) + $7
+					else $8
+				end as stop
+		),
+		remain as (
+			select ctid::text as rowid from rlist
+			where kid = (select id from curkey)
+			order by pos
+			limit ((select stop from bounds) - (select start from bounds) + 1)
+			offset (select start from bounds)
+		)
+		delete from rlist
+		where
+			kid = (select id from curkey)
+			and ctid::text not in (select rowid from remain)`
+	} else {
+		// SQLite version
+		query = `
+		with curkey as (
+			select id, len from rkey
+			where key = ? and type = 2 and (etime is null or etime > ?)
+		),
+		bounds as (
+			select
+				case when ? < 0
+					then (select len from curkey) + ?
+					else ?
+				end as start,
+				case when ? < 0
+					then (select len from curkey) + ?
+					else ?
+				end as stop
+		),
+		remain as (
+			select rlist.rowid from rlist
+			where kid = (select id from curkey)
+			order by pos
+			limit (select stop - start + 1 from bounds)
+			offset (select start from bounds)
+		)
+		delete from rlist
+		where
+			kid = (select id from curkey)
+			and rowid not in (select rowid from remain)`
+	}
+
+	out, err := tx.tx.Exec(query, args...)
 	if err != nil {
-		return 0, err
+		return 0, sqlx.TypedError(err)
 	}
 	n, _ := out.RowsAffected()
 	return int(n), nil
 }
 
-// delete removes the first count occurrences of an element
-// from a list, starting from the front or back.
+// delete deletes items from a list.
 func (tx *Tx) delete(key string, elem any, count int, query string) (int, error) {
-	if count <= 0 {
-		return 0, nil
-	}
-	elemb, err := core.ToBytes(elem)
+	// Convert the element value to bytes.
+	elb, err := core.ToBytes(elem)
 	if err != nil {
 		return 0, err
 	}
 
-	args := []any{key, time.Now().UnixMilli(), elemb, count}
+	// Delete elements from a list.
+	now := time.Now().UnixMilli()
+	var args []any
+	if count > 0 {
+		args = []any{key, now, elb, count}
+	} else {
+		args = []any{key, now, elb}
+	}
+	query = sqlx.ConvertPlaceholders(query)
 	res, err := tx.tx.Exec(query, args...)
 	if err != nil {
-		return 0, err
+		return 0, sqlx.TypedError(err)
 	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
+	n, _ := res.RowsAffected()
 	return int(n), nil
 }
 
-// insert inserts an element before or after a pivot in a list.
+// insert inserts an element into a list.
 func (tx *Tx) insert(key string, pivot, elem any, query string) (int, error) {
-	now := time.Now().UnixMilli()
+	// Convert the pivot and element values to bytes.
 	pivotb, err := core.ToBytes(pivot)
 	if err != nil {
 		return 0, err
@@ -509,64 +636,98 @@ func (tx *Tx) insert(key string, pivot, elem any, query string) (int, error) {
 	}
 
 	// Update the key.
-	var keyID, n int
+	now := time.Now().UnixMilli()
+	sqlUpdateQuery := sqlx.ConvertPlaceholders(sqlInsert)
 	args := []any{now, key, now}
-	err = tx.tx.QueryRow(sqlInsert, args...).Scan(&keyID, &n)
+	var keyID, n int
+	err = tx.tx.QueryRow(sqlUpdateQuery, args...).Scan(&keyID, &n)
 	if err == sql.ErrNoRows {
 		return 0, core.ErrNotFound
 	}
 	if err != nil {
-		return 0, err
+		return 0, sqlx.TypedError(err)
 	}
 
 	// Insert the element.
+	query = sqlx.ConvertPlaceholders(query)
 	args = []any{keyID, pivotb, keyID, keyID, elemb, keyID}
 	_, err = tx.tx.Exec(query, args...)
 	if err != nil {
 		if sqlx.ConstraintFailed(err, "NOT NULL", "rlist.pos") {
 			return -1, core.ErrNotFound
 		}
-		return 0, err
+		return 0, sqlx.TypedError(err)
 	}
 
 	return n, nil
 }
 
-// pop removes and returns an element from the front or back of a list.
+// pop removes and returns the first/last element from a list.
 func (tx *Tx) pop(key string, query string) (core.Value, error) {
-	var val []byte
-	args := []any{key, time.Now().UnixMilli()}
-	err := tx.tx.QueryRow(query, args...).Scan(&val)
-	if err == sql.ErrNoRows {
-		return nil, core.ErrNotFound
+	// Get the first/last element from a list.
+	now := time.Now().UnixMilli()
+	args := []any{key, now}
+	query = sqlx.ConvertPlaceholders(query)
+
+	// For PostgreSQL, we need to modify the query to only return the element
+	if sqlx.IsPostgres() {
+		// Modify the query to only return the element
+		if strings.Contains(query, "returning elem") {
+			query = strings.Replace(query, "returning elem", "returning elem, kid", 1)
+		}
+
+		var elem []byte
+		var kid int
+		err := tx.tx.QueryRow(query, args...).Scan(&elem, &kid)
+		if err == sql.ErrNoRows {
+			return core.Value(nil), core.ErrNotFound
+		}
+		if err != nil {
+			return core.Value(nil), sqlx.TypedError(err)
+		}
+		return core.Value(elem), nil
+	} else {
+		// SQLite version
+		var elem []byte
+		err := tx.tx.QueryRow(query, args...).Scan(&elem)
+		if err == sql.ErrNoRows {
+			return core.Value(nil), core.ErrNotFound
+		}
+		if err != nil {
+			return core.Value(nil), sqlx.TypedError(err)
+		}
+		return core.Value(elem), nil
 	}
-	if err != nil {
-		return nil, err
-	}
-	return core.Value(val), nil
 }
 
-// push inserts an element to the front or back of a list.
+// push appends an element to a list.
 func (tx *Tx) push(key string, elem any, query string) (int, error) {
-	elemb, err := core.ToBytes(elem)
+	// Convert the element value to bytes
+	elb, err := core.ToBytes(elem)
 	if err != nil {
 		return 0, err
 	}
 
-	// Create or update the key.
-	args := []any{key, time.Now().UnixMilli()}
-	var keyID, n int
-	err = tx.tx.QueryRow(sqlPush, args...).Scan(&keyID, &n)
+	// First create or update the key
+	now := time.Now().UnixMilli()
+	var keyID, length int
+	sqlInsertQuery := sqlx.AdaptPostgresQuery(sqlx.ConvertPlaceholders(sqlPush))
+	err = tx.tx.QueryRow(sqlInsertQuery, key, now).Scan(&keyID, &length)
 	if err != nil {
 		return 0, sqlx.TypedError(err)
 	}
 
-	// Insert the element.
-	args = []any{keyID, elemb, keyID}
+	// Now insert the element - we need to match the exact params for each query
+	query = sqlx.AdaptPostgresQuery(sqlx.ConvertPlaceholders(query))
+	var args []any
+
+	// All our push queries need kid, elem, kid pattern
+	args = []any{keyID, elb, keyID}
+
 	_, err = tx.tx.Exec(query, args...)
 	if err != nil {
-		return 0, err
+		return 0, sqlx.TypedError(err)
 	}
 
-	return n, nil
+	return length, nil
 }

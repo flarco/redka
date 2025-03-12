@@ -60,7 +60,9 @@ type Value = core.Value
 type Options struct {
 	// SQL driver name.
 	// If empty, uses "sqlite3".
+	// Use "postgres" for PostgreSQL connections.
 	DriverName string
+
 	// SQL pragmas to set on the database connection.
 	// If nil, uses the default pragmas:
 	//  - journal_mode=wal
@@ -68,7 +70,10 @@ type Options struct {
 	//  - temp_store=memory
 	//  - mmap_size=268435456
 	//  - foreign_keys=on
+	//
+	// Note: Pragmas only apply to SQLite connections.
 	Pragma map[string]string
+
 	// Logger for the database. If nil, uses a silent logger.
 	Logger *slog.Logger
 
@@ -102,6 +107,9 @@ type DB struct {
 // Open opens a new or existing database at the given path.
 // Creates the database schema if necessary.
 //
+// For SQLite, the path is a file path or ":memory:" for an in-memory database.
+// For PostgreSQL, the path should be a PostgreSQL connection string.
+//
 // The returned [DB] is safe for concurrent use by multiple goroutines
 // as long as you use a single instance throughout your program.
 // Typically, you only close the DB when the program exits.
@@ -111,22 +119,28 @@ func Open(path string, opts *Options) (*DB, error) {
 	// Apply the default options if necessary.
 	opts = applyOptions(defaultOptions, opts)
 
+	// Determine driver type for sqlx
+	driver := sqlx.DriverSQLite
+	if opts.DriverName == "postgres" || opts.DriverName == "lib/pq" {
+		driver = sqlx.DriverPostgres
+	}
+
 	// Open the read-write database handle.
-	dataSource := sqlx.DataSource(path, true, opts.Pragma)
+	dataSource := sqlx.DataSource(path, driver, true, opts.Pragma)
 	rw, err := sql.Open(opts.DriverName, dataSource)
 	if err != nil {
 		return nil, err
 	}
 
 	// Open the read-only database handle.
-	dataSource = sqlx.DataSource(path, false, opts.Pragma)
+	dataSource = sqlx.DataSource(path, driver, false, opts.Pragma)
 	ro, err := sql.Open(opts.DriverName, dataSource)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create the database-backed repository.
-	sdb, err := sqlx.Open(rw, ro, newTx, opts.Pragma)
+	sdb, err := sqlx.Open(rw, ro, newTx, driver, opts.Pragma)
 	if err != nil {
 		return nil, err
 	}
@@ -140,15 +154,21 @@ func OpenRead(path string, opts *Options) (*DB, error) {
 	opts = applyOptions(defaultOptions, opts)
 	opts.readonly = true
 
+	// Determine driver type for sqlx
+	driver := sqlx.DriverSQLite
+	if opts.DriverName == "postgres" || opts.DriverName == "lib/pq" {
+		driver = sqlx.DriverPostgres
+	}
+
 	// Open the read-only database handle.
-	dataSource := sqlx.DataSource(path, false, opts.Pragma)
+	dataSource := sqlx.DataSource(path, driver, false, opts.Pragma)
 	db, err := sql.Open(opts.DriverName, dataSource)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create the database-backed repository.
-	sdb := sqlx.New(db, db, newTx)
+	sdb := sqlx.New(db, db, newTx, driver)
 	return new(sdb, opts)
 }
 
@@ -157,7 +177,14 @@ func OpenRead(path string, opts *Options) (*DB, error) {
 // The opts parameter is optional. If nil, uses default options.
 func OpenDB(rw *sql.DB, ro *sql.DB, opts *Options) (*DB, error) {
 	opts = applyOptions(defaultOptions, opts)
-	sdb, err := sqlx.Open(rw, ro, newTx, opts.Pragma)
+
+	// Determine driver type for sqlx
+	driver := sqlx.DriverSQLite
+	if opts.DriverName == "postgres" || opts.DriverName == "lib/pq" {
+		driver = sqlx.DriverPostgres
+	}
+
+	sdb, err := sqlx.Open(rw, ro, newTx, driver, opts.Pragma)
 	if err != nil {
 		return nil, err
 	}
@@ -168,20 +195,43 @@ func OpenDB(rw *sql.DB, ro *sql.DB, opts *Options) (*DB, error) {
 func OpenReadDB(db *sql.DB, opts *Options) (*DB, error) {
 	opts = applyOptions(defaultOptions, opts)
 	opts.readonly = true
-	sdb := sqlx.New(db, db, newTx)
+
+	// Determine driver type for sqlx
+	driver := sqlx.DriverSQLite
+	if opts.DriverName == "postgres" || opts.DriverName == "lib/pq" {
+		driver = sqlx.DriverPostgres
+	}
+
+	sdb := sqlx.New(db, db, newTx, driver)
 	return new(sdb, opts)
 }
 
 // new creates a new database.
 func new(sdb *sqlx.DB[*Tx], opts *Options) (*DB, error) {
+	// Create repositories with appropriate driver
+	var hashDB *rhash.DB
+	var keyDB *rkey.DB
+	var listDB *rlist.DB
+	var setDB *rset.DB
+	var stringDB *rstring.DB
+	var zsetDB *rzset.DB
+
+	// Create all repositories with the appropriate driver
+	hashDB = rhash.New(sdb.RW, sdb.RO, sdb.Driver)
+	keyDB = rkey.NewWithDriver(sdb.RW, sdb.RO, sdb.Driver)
+	listDB = rlist.NewWithDriver(sdb.RW, sdb.RO, sdb.Driver)
+	setDB = rset.NewWithDriver(sdb.RW, sdb.RO, sdb.Driver)
+	stringDB = rstring.NewWithDriver(sdb.RW, sdb.RO, sdb.Driver)
+	zsetDB = rzset.NewWithDriver(sdb.RW, sdb.RO, sdb.Driver)
+
 	rdb := &DB{
 		DB:       sdb,
-		hashDB:   rhash.New(sdb.RW, sdb.RO),
-		keyDB:    rkey.New(sdb.RW, sdb.RO),
-		listDB:   rlist.New(sdb.RW, sdb.RO),
-		setDB:    rset.New(sdb.RW, sdb.RO),
-		stringDB: rstring.New(sdb.RW, sdb.RO),
-		zsetDB:   rzset.New(sdb.RW, sdb.RO),
+		hashDB:   hashDB,
+		keyDB:    keyDB,
+		listDB:   listDB,
+		setDB:    setDB,
+		stringDB: stringDB,
+		zsetDB:   zsetDB,
 		log:      opts.Logger,
 	}
 	if !opts.readonly {

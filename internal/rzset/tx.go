@@ -238,13 +238,14 @@ func (tx *Tx) GetScore(key string, elem any) (float64, error) {
 
 	var score float64
 	args := []any{key, time.Now().UnixMilli(), elemb}
-	row := tx.tx.QueryRow(sqlGetScore, args...)
+	query := sqlx.AdaptPostgresQuery(sqlx.ConvertPlaceholders(sqlGetScore))
+	row := tx.tx.QueryRow(query, args...)
 	err = row.Scan(&score)
 	if err == sql.ErrNoRows {
 		return 0, core.ErrNotFound
 	}
 	if err != nil {
-		return 0, err
+		return 0, sqlx.TypedError(err)
 	}
 	return score, nil
 }

@@ -25,7 +25,14 @@ type DB struct {
 // New connects to the sorted set repository.
 // Does not create the database schema.
 func New(rw *sql.DB, ro *sql.DB) *DB {
-	d := sqlx.New(rw, ro, NewTx)
+	d := sqlx.New(rw, ro, NewTx, sqlx.DriverSQLite)
+	return &DB{d}
+}
+
+// NewWithDriver connects to the sorted set repository with a specific driver.
+// Does not create the database schema.
+func NewWithDriver(rw *sql.DB, ro *sql.DB, driver string) *DB {
+	d := sqlx.New(rw, ro, NewTx, driver)
 	return &DB{d}
 }
 
@@ -41,7 +48,6 @@ func (d *DB) Add(key string, elem any, score float64) (bool, error) {
 		return err
 	})
 	return created, err
-
 }
 
 // AddMany adds or updates multiple elements in a set.

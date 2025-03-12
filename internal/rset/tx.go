@@ -301,9 +301,10 @@ func (tx *Tx) Exists(key, elem any) (bool, error) {
 
 	var exists bool
 	args := []any{key, time.Now().UnixMilli(), elemb}
-	err = tx.tx.QueryRow(sqlExists, args...).Scan(&exists)
+	query := sqlx.AdaptPostgresQuery(sqlx.ConvertPlaceholders(sqlExists))
+	err = tx.tx.QueryRow(query, args...).Scan(&exists)
 	if err != nil {
-		return false, err
+		return false, sqlx.TypedError(err)
 	}
 	return exists, nil
 }
@@ -535,61 +536,71 @@ func (tx *Tx) UnionStore(dest string, keys ...string) (int, error) {
 	return tx.store(query, args)
 }
 
-// deleteKey deletes set elements and resets the key metadata.
+// deleteKey deletes the key and all its elements.
 func (tx *Tx) deleteKey(key string, now int64) error {
-	_, err := tx.tx.Exec(sqlDeleteKey1, key, now)
+	query := sqlx.ConvertPlaceholders(sqlDeleteKey1)
+	_, err := tx.tx.Exec(query, key, now)
 	if err != nil {
 		return err
 	}
-	_, err = tx.tx.Exec(sqlDeleteKey2, key, now)
+	query = sqlx.ConvertPlaceholders(sqlDeleteKey2)
+	_, err = tx.tx.Exec(query, now, key, now)
 	return err
 }
 
-// createKey creates a new set key if it does not exist.
+// createKey creates a new key or updates an existing one.
 func (tx *Tx) createKey(key string, now int64) (int, error) {
+	query := sqlx.ConvertPlaceholders(sqlAdd1)
 	var keyID int
-	err := tx.tx.QueryRow(sqlAdd1, key, now).Scan(&keyID)
+	err := tx.tx.QueryRow(query, key, now).Scan(&keyID)
 	if err != nil {
 		return 0, sqlx.TypedError(err)
 	}
 	return keyID, nil
 }
 
-// store executes a set operation and stores the result.
-// Returns the number of elements stored.
+// store sets elements for a key and returns the number of elements stored.
 func (tx *Tx) store(query string, args []any) (int, error) {
-	res, err := tx.tx.Exec(query, args...)
-	if err != nil {
-		return 0, err
-	}
-	n, _ := res.RowsAffected()
-	return int(n), nil
-}
-
-// selectElems selects elements from a set.
-func (tx *Tx) selectElems(query string, args []any) ([]core.Value, error) {
-	// Execute the query.
-	var rows *sql.Rows
+	query = sqlx.ConvertPlaceholders(query)
 	rows, err := tx.tx.Query(query, args...)
 	if err != nil {
-		return nil, err
+		return 0, sqlx.TypedError(err)
 	}
 	defer rows.Close()
 
-	// Build the resulting slice.
-	var elems []core.Value
+	// Count the number of elements.
+	var n int
 	for rows.Next() {
-		var val []byte
-		err := rows.Scan(&val)
+		n++
+	}
+	if rows.Err() != nil {
+		return 0, rows.Err()
+	}
+	return n, nil
+}
+
+// selectElems returns elements for a query.
+func (tx *Tx) selectElems(query string, args []any) ([]core.Value, error) {
+	query = sqlx.ConvertPlaceholders(query)
+	rows, err := tx.tx.Query(query, args...)
+	if err != nil {
+		return nil, sqlx.TypedError(err)
+	}
+	defer rows.Close()
+
+	// Build a slice of elements.
+	elems := []core.Value{}
+	for rows.Next() {
+		var elem []byte
+		err := rows.Scan(&elem)
 		if err != nil {
 			return nil, err
 		}
-		elems = append(elems, core.Value(val))
+		elems = append(elems, core.Value(elem))
 	}
 	if rows.Err() != nil {
 		return nil, rows.Err()
 	}
-
 	return elems, nil
 }
 

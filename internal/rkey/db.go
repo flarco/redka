@@ -18,10 +18,17 @@ type DB struct {
 	*sqlx.DB[*Tx]
 }
 
-// New creates a new database-backed key repository.
+// New connects to the key repository.
 // Does not create the database schema.
 func New(rw *sql.DB, ro *sql.DB) *DB {
-	d := sqlx.New(rw, ro, NewTx)
+	d := sqlx.New(rw, ro, NewTx, sqlx.DriverSQLite)
+	return &DB{d}
+}
+
+// NewWithDriver connects to the key repository with a specific driver.
+// Does not create the database schema.
+func NewWithDriver(rw *sql.DB, ro *sql.DB, driver string) *DB {
+	d := sqlx.New(rw, ro, NewTx, driver)
 	return &DB{d}
 }
 

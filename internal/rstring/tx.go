@@ -24,8 +24,8 @@ const (
 	insert into rkey (key, type, version, etime, mtime)
 	values (?, 1, 1, ?, ?)
 	on conflict (key) do update set
-		type = case when type = excluded.type then type else null end,
-		version = version+1,
+		type = case when rkey.type = excluded.type then rkey.type else null end,
+		version = rkey.version+1,
 		etime = excluded.etime,
 		mtime = excluded.mtime`
 
@@ -39,8 +39,8 @@ const (
 	insert into rkey (key, type, version, etime, mtime)
 	values (?, 1, 1, null, ?)
 	on conflict (key) do update set
-		type = case when type = excluded.type then type else null end,
-		version = version+1,
+		type = case when rkey.type = excluded.type then excluded.type else null end,
+		version = rkey.version+1,
 		mtime = excluded.mtime`
 
 	sqlUpdate2 = sqlSet2
@@ -70,6 +70,7 @@ func (tx *Tx) GetMany(keys ...string) (map[string]core.Value, error) {
 	// Get the values of the requested keys.
 	now := time.Now().UnixMilli()
 	query, keyArgs := sqlx.ExpandIn(sqlGetMany, ":keys", keys)
+	query = sqlx.ConvertPlaceholders(query)
 	args := append(keyArgs, now)
 
 	var rows *sql.Rows
@@ -203,7 +204,8 @@ func (tx *Tx) SetWith(key string, value any) SetCmd {
 func get(tx sqlx.Tx, key string) (core.Value, error) {
 	args := []any{key, time.Now().UnixMilli()}
 	var val []byte
-	err := tx.QueryRow(sqlGet, args...).Scan(&val)
+	query := sqlx.ConvertPlaceholders(sqlGet)
+	err := tx.QueryRow(query, args...).Scan(&val)
 	if err == sql.ErrNoRows {
 		return core.Value(nil), core.ErrNotFound
 	}
@@ -226,30 +228,33 @@ func set(tx sqlx.Tx, key string, value any, at time.Time) error {
 		*etime = at.UnixMilli()
 	}
 
-	args := []any{key, etime, time.Now().UnixMilli()}
-	_, err = tx.Exec(sqlSet1, args...)
+	now := time.Now().UnixMilli()
+	query := sqlx.ConvertPlaceholders(sqlSet1)
+	_, err = tx.Exec(query, key, etime, now)
 	if err != nil {
 		return sqlx.TypedError(err)
 	}
 
-	args = []any{key, valueb}
-	_, err = tx.Exec(sqlSet2, args...)
-	return err
+	query = sqlx.ConvertPlaceholders(sqlSet2)
+	_, err = tx.Exec(query, key, valueb)
+	return sqlx.TypedError(err)
 }
 
-// update updates the value of the existing key without changing its
-// expiration time. If the key does not exist, creates a new key with
-// the specified value and no expiration time.
+// update updates the key value (but not its expiration time).
 func update(tx sqlx.Tx, key string, value any) error {
 	valueb, err := core.ToBytes(value)
 	if err != nil {
 		return err
 	}
 
-	_, err = tx.Exec(sqlUpdate1, key, time.Now().UnixMilli())
+	now := time.Now().UnixMilli()
+	query := sqlx.ConvertPlaceholders(sqlUpdate1)
+	_, err = tx.Exec(query, key, now)
 	if err != nil {
 		return sqlx.TypedError(err)
 	}
-	_, err = tx.Exec(sqlUpdate2, key, valueb)
-	return err
+
+	query = sqlx.ConvertPlaceholders(sqlUpdate2)
+	_, err = tx.Exec(query, key, valueb)
+	return sqlx.TypedError(err)
 }

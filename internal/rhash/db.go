@@ -19,9 +19,26 @@ type DB struct {
 
 // New connects to the hash repository.
 // Does not create the database schema.
-func New(rw *sql.DB, ro *sql.DB) *DB {
-	d := sqlx.New(rw, ro, NewTx)
+func New(rw *sql.DB, ro *sql.DB, driver string) *DB {
+	d := sqlx.New(rw, ro, NewTx, driver)
 	return &DB{d}
+}
+
+// Open connects to the hash repository
+// and initializes the database schema.
+func Open(rw *sql.DB, ro *sql.DB, driver string, schema string, pragma map[string]string) (*DB, error) {
+	d, err := sqlx.Open(rw, ro, NewTx, driver, pragma)
+	if err != nil {
+		return nil, err
+	}
+	// Initialize schema if provided
+	if schema != "" {
+		_, err = d.RW.Exec(schema)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &DB{d}, nil
 }
 
 // Delete deletes one or more items from a hash.

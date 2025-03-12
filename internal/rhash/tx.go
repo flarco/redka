@@ -100,53 +100,70 @@ func NewTx(tx sqlx.Tx) *Tx {
 // Ignores non-existing fields.
 // Does nothing if the key does not exist or is not a hash.
 func (tx *Tx) Delete(key string, fields ...string) (int, error) {
-	// Delete hash fields.
+	if len(fields) == 0 {
+		return 0, nil
+	}
+
+	// Delete fields from a hash.
 	now := time.Now().UnixMilli()
 	query, fieldArgs := sqlx.ExpandIn(sqlDelete1, ":fields", fields)
+	query = sqlx.ConvertPlaceholders(query)
 	args := append([]any{key, now}, fieldArgs...)
-	res, err := tx.tx.Exec(query, args...)
+	result, err := tx.tx.Exec(query, args...)
 	if err != nil {
-		return 0, err
+		return 0, sqlx.TypedError(err)
 	}
-	n, _ := res.RowsAffected()
+	n, _ := result.RowsAffected()
 	if n == 0 {
 		return 0, nil
 	}
 
-	// Update the key.
-	args = []any{now, n, key, now}
-	_, err = tx.tx.Exec(sqlDelete2, args...)
+	// If we've deleted any fields,
+	// update the len of the key.
+	count := int(n)
+	query = sqlx.ConvertPlaceholders(sqlDelete2)
+	_, err = tx.tx.Exec(query, now, count, key, now)
 	if err != nil {
-		return 0, err
+		return 0, sqlx.TypedError(err)
 	}
-
-	return int(n), nil
+	return count, nil
 }
 
 // Exists checks if a field exists in a hash.
 // If the key does not exist or is not a hash, returns false.
 func (tx *Tx) Exists(key, field string) (bool, error) {
-	count, err := tx.count(key, field)
-	return count > 0, err
+	now := time.Now().UnixMilli()
+	args := []any{key, now, field}
+	query := sqlx.ConvertPlaceholders(sqlGet)
+	rows, err := tx.tx.Query(query, args...)
+	if err != nil {
+		return false, sqlx.TypedError(err)
+	}
+	defer rows.Close()
+
+	exists := rows.Next()
+	if rows.Err() != nil {
+		return false, rows.Err()
+	}
+	return exists, nil
 }
 
 // Fields returns all fields in a hash.
 // If the key does not exist or is not a hash, returns an empty slice.
 func (tx *Tx) Fields(key string) ([]string, error) {
-	// Select hash fields.
-	var rows *sql.Rows
-	args := []any{key, time.Now().UnixMilli()}
-	rows, err := tx.tx.Query(sqlFields, args...)
+	now := time.Now().UnixMilli()
+	args := []any{key, now}
+	query := sqlx.ConvertPlaceholders(sqlFields)
+	rows, err := tx.tx.Query(query, args...)
 	if err != nil {
-		return nil, err
+		return nil, sqlx.TypedError(err)
 	}
 	defer rows.Close()
 
-	// Build a slice of hash fields.
-	fields := []string{}
+	var fields []string
 	for rows.Next() {
 		var field string
-		err := rows.Scan(&field)
+		err = rows.Scan(&field)
 		if err != nil {
 			return nil, err
 		}
@@ -155,7 +172,6 @@ func (tx *Tx) Fields(key string) ([]string, error) {
 	if rows.Err() != nil {
 		return nil, rows.Err()
 	}
-
 	return fields, nil
 }
 
@@ -163,14 +179,16 @@ func (tx *Tx) Fields(key string) ([]string, error) {
 // If the element does not exist, returns ErrNotFound.
 // If the key does not exist or is not a hash, returns ErrNotFound.
 func (tx *Tx) Get(key, field string) (core.Value, error) {
+	now := time.Now().UnixMilli()
+	args := []any{key, now, field}
+	query := sqlx.ConvertPlaceholders(sqlGet)
 	var val []byte
-	args := []any{key, time.Now().UnixMilli(), field}
-	err := tx.tx.QueryRow(sqlGet, args...).Scan(&val)
+	err := tx.tx.QueryRow(query, args...).Scan(&val)
 	if err == sql.ErrNoRows {
 		return core.Value(nil), core.ErrNotFound
 	}
 	if err != nil {
-		return core.Value(nil), err
+		return core.Value(nil), sqlx.TypedError(err)
 	}
 	return core.Value(val), nil
 }
@@ -179,29 +197,46 @@ func (tx *Tx) Get(key, field string) (core.Value, error) {
 // Ignores fields that do not exist and do not return them in the map.
 // If the key does not exist or is not a hash, returns an empty map.
 func (tx *Tx) GetMany(key string, fields ...string) (map[string]core.Value, error) {
-	// Get the values of the requested fields.
-	query, fieldArgs := sqlx.ExpandIn(sqlGetMany, ":fields", fields)
-	args := append([]any{key, time.Now().UnixMilli()}, fieldArgs...)
+	if len(fields) == 0 {
+		return map[string]core.Value{}, nil
+	}
+
+	now := time.Now().UnixMilli()
+	args := []any{key, now}
 	var rows *sql.Rows
-	rows, err := tx.tx.Query(query, args...)
+	var err error
+
+	if len(fields) == 1 {
+		// Use a simple query for a single field.
+		args = append(args, fields[0])
+		query := sqlx.ConvertPlaceholders(sqlGet)
+		rows, err = tx.tx.Query(query, args...)
+	} else {
+		// Use an expanded query for multiple fields.
+		query, fieldArgs := sqlx.ExpandIn(sqlGetMany, ":fields", fields)
+		query = sqlx.ConvertPlaceholders(query)
+		args = append(args, fieldArgs...)
+		rows, err = tx.tx.Query(query, args...)
+	}
+
 	if err != nil {
-		return nil, err
+		return nil, sqlx.TypedError(err)
 	}
 	defer rows.Close()
 
-	// Fill the map with the values for existing fields.
 	items := map[string]core.Value{}
 	for rows.Next() {
-		field, val, err := scanValue(rows)
+		var field string
+		var val []byte
+		err = rows.Scan(&field, &val)
 		if err != nil {
 			return nil, err
 		}
-		items[field] = val
+		items[field] = core.Value(val)
 	}
 	if rows.Err() != nil {
 		return nil, rows.Err()
 	}
-
 	return items, nil
 }
 
@@ -454,29 +489,55 @@ func (tx *Tx) Values(key string) ([]core.Value, error) {
 	return vals, nil
 }
 
-// count returns the number of existing fields in a hash.
+// count returns the number of items deleted.
 func (tx *Tx) count(key string, fields ...string) (int, error) {
+	now := time.Now().UnixMilli()
+	args := []any{key, now}
 	query, fieldArgs := sqlx.ExpandIn(sqlCount, ":fields", fields)
-	args := append([]any{key, time.Now().UnixMilli()}, fieldArgs...)
+	query = sqlx.ConvertPlaceholders(query)
+	args = append(args, fieldArgs...)
 	var count int
 	err := tx.tx.QueryRow(query, args...).Scan(&count)
-	return count, err
+	if err != nil {
+		return 0, sqlx.TypedError(err)
+	}
+	return count, nil
 }
 
-// set creates or updates the value of a field in a hash.
+// set creates or updates a field in a hash.
 func (tx *Tx) set(key string, field string, value any) error {
-	valueb, err := core.ToBytes(value)
+	val, err := core.ToBytes(value)
 	if err != nil {
 		return err
 	}
-	args := []any{key, time.Now().UnixMilli()}
-	var keyID int
-	err = tx.tx.QueryRow(sqlSet1, args...).Scan(&keyID)
+
+	now := time.Now().UnixMilli()
+
+	// Insert the key if it doesn't exist.
+	query := sqlx.ConvertPlaceholders(sqlSet1)
+	row := tx.tx.QueryRow(query, key, now)
+	var keyId int64
+	err = row.Scan(&keyId)
+	if err != nil && err != sql.ErrNoRows {
+		return sqlx.TypedError(err)
+	}
+
+	// If we got an error getting the key ID, try to fetch it directly
+	if err == sql.ErrNoRows {
+		query = "SELECT id FROM rkey WHERE key = $1 AND type = 4"
+		err = tx.tx.QueryRow(query, key).Scan(&keyId)
+		if err != nil {
+			return sqlx.TypedError(err)
+		}
+	}
+
+	// Insert the field.
+	query = sqlx.ConvertPlaceholders(sqlSet2)
+	_, err = tx.tx.Exec(query, keyId, field, val)
 	if err != nil {
 		return sqlx.TypedError(err)
 	}
-	_, err = tx.tx.Exec(sqlSet2, keyID, field, valueb)
-	return err
+	return nil
 }
 
 // scanValue scans a hash field value the current row.

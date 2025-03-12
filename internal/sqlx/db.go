@@ -10,11 +10,20 @@ import (
 	"sync"
 )
 
+// Driver type constants
+const (
+	DriverSQLite   = "sqlite"
+	DriverPostgres = "postgres"
+)
+
 // Database schema version.
 // const schemaVersion = 1
 
 //go:embed schema.sql
 var sqlSchema string
+
+//go:embed schema_postgres.sql
+var postgresSchema string
 
 // DefaultPragma is a set of default database settings.
 var DefaultPragma = map[string]string{
@@ -30,25 +39,32 @@ var DefaultPragma = map[string]string{
 // Has separate database handles for read-write
 // and read-only operations.
 type DB[T any] struct {
-	RW   *sql.DB    // read-write handle
-	RO   *sql.DB    // read-only handle
-	newT func(Tx) T // creates a new domain transaction
+	RW     *sql.DB    // read-write handle
+	RO     *sql.DB    // read-only handle
+	Driver string     // database driver type
+	newT   func(Tx) T // creates a new domain transaction
 	sync.Mutex
 }
 
 // Open creates a new database-backed repository.
 // Creates the database schema if necessary.
-func Open[T any](rw *sql.DB, ro *sql.DB, newT func(Tx) T, pragma map[string]string) (*DB[T], error) {
-	d := New(rw, ro, newT)
+func Open[T any](rw *sql.DB, ro *sql.DB, newT func(Tx) T, driver string, pragma map[string]string) (*DB[T], error) {
+	d := New(rw, ro, newT, driver)
 	err := d.init(pragma)
 	return d, err
 }
 
-// newSqlDB creates a new database-backed repository.
-// Like openSQL, but does not create the database schema.
-func New[T any](rw *sql.DB, ro *sql.DB, newT func(Tx) T) *DB[T] {
-	d := &DB[T]{RW: rw, RO: ro, newT: newT}
-	return d
+// New creates a new database instance.
+func New[T any](rw *sql.DB, ro *sql.DB, newT func(Tx) T, driver string) *DB[T] {
+	// Set the PostgreSQL flag if the driver is postgres
+	SetPostgres(driver == DriverPostgres)
+
+	return &DB[T]{
+		RW:     rw,
+		RO:     ro,
+		Driver: driver,
+		newT:   newT,
+	}
 }
 
 // Update executes a function within a writable transaction.
@@ -103,6 +119,16 @@ func (d *DB[T]) setNumConns() {
 
 // applySettings applies the database settings.
 func (d *DB[T]) applySettings(pragma map[string]string) error {
+	// Skip if pragmas are empty
+	if len(pragma) == 0 {
+		return nil
+	}
+
+	// Skip for PostgreSQL - pragmas only apply to SQLite
+	if d.Driver == DriverPostgres {
+		return nil
+	}
+
 	// Ideally, we'd only set the pragmas in the connection string
 	// (see [DataSource]), so we wouldn't need this function.
 	// But since the mattn driver does not support setting pragmas
@@ -118,9 +144,6 @@ func (d *DB[T]) applySettings(pragma map[string]string) error {
 	// Still, it's better than nothing.
 	//
 	// See https://github.com/nalgeon/redka/issues/28 for more details.
-	if len(pragma) == 0 {
-		return nil
-	}
 
 	var query strings.Builder
 	for name, val := range pragma {
@@ -141,7 +164,21 @@ func (d *DB[T]) applySettings(pragma map[string]string) error {
 
 // createSchema creates the database schema.
 func (d *DB[T]) createSchema() error {
-	_, err := d.RW.Exec(sqlSchema)
+	// Use the appropriate schema based on the driver
+	var schema string
+	if d.Driver == DriverPostgres {
+		// Use the embedded PostgreSQL schema
+		schema = postgresSchema
+	} else {
+		// Use the default embedded SQLite schema
+		schema = sqlSchema
+	}
+
+	if schema == "" {
+		return nil
+	}
+
+	_, err := d.RW.Exec(schema)
 	return err
 }
 
@@ -149,10 +186,17 @@ func (d *DB[T]) createSchema() error {
 func (d *DB[T]) execTx(ctx context.Context, writable bool, f func(tx T) error) error {
 	var dtx *sql.Tx
 	var err error
+
+	// For PostgreSQL read-only transactions, we need to explicitly set the transaction mode
+	var opts *sql.TxOptions
+	if d.Driver == DriverPostgres && !writable {
+		opts = &sql.TxOptions{ReadOnly: true}
+	}
+
 	if writable {
-		dtx, err = d.RW.BeginTx(ctx, nil)
+		dtx, err = d.RW.BeginTx(ctx, opts)
 	} else {
-		dtx, err = d.RO.BeginTx(ctx, nil)
+		dtx, err = d.RO.BeginTx(ctx, opts)
 	}
 
 	if err != nil {
@@ -160,7 +204,16 @@ func (d *DB[T]) execTx(ctx context.Context, writable bool, f func(tx T) error) e
 	}
 	defer func() { _ = dtx.Rollback() }()
 
-	tx := d.newT(dtx)
+	// Create a wrapper for *sql.Tx if we're using PostgreSQL
+	var tx T
+	if d.Driver == DriverPostgres {
+		// Wrap the transaction with PostgreSQL query adaptation
+		ptx := &PostgresTx{tx: dtx}
+		tx = d.newT(ptx)
+	} else {
+		tx = d.newT(dtx)
+	}
+
 	err = f(tx)
 	if err != nil {
 		return err
@@ -168,9 +221,42 @@ func (d *DB[T]) execTx(ctx context.Context, writable bool, f func(tx T) error) e
 	return dtx.Commit()
 }
 
-// DataSource returns an SQLite connection string
-// for a read-only or read-write mode.
-func DataSource(path string, writable bool, pragma map[string]string) string {
+// PostgresTx wraps a *sql.Tx to adapt queries for PostgreSQL
+type PostgresTx struct {
+	tx *sql.Tx
+}
+
+// Query adapts and executes a query for PostgreSQL
+func (ptx *PostgresTx) Query(query string, args ...any) (*sql.Rows, error) {
+	query = AdaptPostgresQuery(query)
+	// println(">>>>>>> " + query)
+	return ptx.tx.Query(query, args...)
+}
+
+// QueryRow adapts and executes a query for PostgreSQL
+func (ptx *PostgresTx) QueryRow(query string, args ...any) *sql.Row {
+	query = AdaptPostgresQuery(query)
+	// println(">>>>>>> " + query)
+	return ptx.tx.QueryRow(query, args...)
+}
+
+// Exec adapts and executes a query for PostgreSQL
+func (ptx *PostgresTx) Exec(query string, args ...any) (sql.Result, error) {
+	query = AdaptPostgresQuery(query)
+	// println(">>>>>>> " + query)
+	return ptx.tx.Exec(query, args...)
+}
+
+// DataSource returns a database connection string.
+// For SQLite, it returns a connection string for a read-only or read-write mode.
+// For PostgreSQL, it returns the connection string as-is.
+func DataSource(path string, driver string, writable bool, pragma map[string]string) string {
+	// For PostgreSQL, just return the connection string as-is
+	if driver == DriverPostgres {
+		return path
+	}
+
+	// Below is the SQLite-specific logic
 	var ds string
 
 	// Parse the parameters.
@@ -232,4 +318,9 @@ func suggestNumConns() int {
 	default:
 		return ncpu
 	}
+}
+
+// isSQLite returns true if the database is SQLite
+func (d *DB[T]) isSQLite() bool {
+	return d.Driver == DriverSQLite || d.Driver == "sqlite3" || d.Driver == "mattn-sqlite3" || d.Driver == "redka"
 }
