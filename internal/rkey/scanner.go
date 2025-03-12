@@ -1,6 +1,6 @@
 package rkey
 
-import "github.com/nalgeon/redka/internal/core"
+import "github.com/flarco/redka/internal/core"
 
 // Scanner is the iterator for keys.
 // Stops when there are no more keys or an error occurs.

@@ -1,12 +1,12 @@
-module github.com/nalgeon/redka/example
+module github.com/flarco/redka/example
 
-replace github.com/nalgeon/redka => ../
+replace github.com/flarco/redka => ../
 
 go 1.22
 
 require (
 	github.com/mattn/go-sqlite3 v1.14.22
-	github.com/nalgeon/redka v0.0.0-00010101000000-000000000000
+	github.com/flarco/redka v0.0.0-00010101000000-000000000000
 	github.com/ncruces/go-sqlite3 v0.16.2
 	github.com/tursodatabase/go-libsql v0.0.0-20240429120401-651096bbee0b
 	modernc.org/sqlite v1.29.5

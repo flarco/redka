@@ -1,9 +1,9 @@
 package hash
 
 import (
-	"github.com/nalgeon/redka/internal/core"
-	"github.com/nalgeon/redka/internal/parser"
-	"github.com/nalgeon/redka/internal/redis"
+	"github.com/flarco/redka/internal/core"
+	"github.com/flarco/redka/internal/parser"
+	"github.com/flarco/redka/internal/redis"
 )
 
 // Returns the values of multiple fields in a hash.

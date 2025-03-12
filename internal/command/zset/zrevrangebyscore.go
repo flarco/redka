@@ -1,8 +1,8 @@
 package zset
 
 import (
-	"github.com/nalgeon/redka/internal/parser"
-	"github.com/nalgeon/redka/internal/redis"
+	"github.com/flarco/redka/internal/parser"
+	"github.com/flarco/redka/internal/redis"
 )
 
 // Returns members in a sorted set within a range of scores in reverse order.

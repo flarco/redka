@@ -1,8 +1,8 @@
 package string
 
 import (
-	"github.com/nalgeon/redka/internal/core"
-	"github.com/nalgeon/redka/internal/redis"
+	"github.com/flarco/redka/internal/core"
+	"github.com/flarco/redka/internal/redis"
 )
 
 // Returns the previous string value of a key after setting it to a new value.

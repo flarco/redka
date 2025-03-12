@@ -6,7 +6,7 @@ import (
 	"log"
 	"log/slog"
 
-	"github.com/nalgeon/redka"
+	"github.com/flarco/redka"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
 )

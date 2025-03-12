@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nalgeon/redka/internal/redis"
-	"github.com/nalgeon/redka/internal/testx"
+	"github.com/flarco/redka/internal/redis"
+	"github.com/flarco/redka/internal/testx"
 )
 
 func TestExpireAtParse(t *testing.T) {

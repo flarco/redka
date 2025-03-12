@@ -3,9 +3,9 @@ package key
 import (
 	"testing"
 
-	"github.com/nalgeon/redka/internal/redis"
-	"github.com/nalgeon/redka/internal/rkey"
-	"github.com/nalgeon/redka/internal/testx"
+	"github.com/flarco/redka/internal/redis"
+	"github.com/flarco/redka/internal/rkey"
+	"github.com/flarco/redka/internal/testx"
 )
 
 func TestScanParse(t *testing.T) {

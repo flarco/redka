@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nalgeon/redka/internal/sqlx"
+	"github.com/flarco/redka/internal/sqlx"
 )
 
 const (

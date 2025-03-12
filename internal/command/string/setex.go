@@ -3,8 +3,8 @@ package string
 import (
 	"time"
 
-	"github.com/nalgeon/redka/internal/parser"
-	"github.com/nalgeon/redka/internal/redis"
+	"github.com/flarco/redka/internal/parser"
+	"github.com/flarco/redka/internal/redis"
 )
 
 // Sets the string value and expiration time of a key.

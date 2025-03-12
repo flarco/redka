@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/nalgeon/redka"
+	"github.com/flarco/redka"
 	"github.com/tidwall/redcon"
 )
 

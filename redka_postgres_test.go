@@ -6,9 +6,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/flarco/redka"
+	"github.com/flarco/redka/internal/core"
 	_ "github.com/lib/pq"
-	"github.com/nalgeon/redka"
-	"github.com/nalgeon/redka/internal/core"
 )
 
 // Test constants

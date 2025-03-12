@@ -1,6 +1,6 @@
 package key
 
-import "github.com/nalgeon/redka/internal/redis"
+import "github.com/flarco/redka/internal/redis"
 
 // Remove all keys from the current database.
 // FLUSHDB

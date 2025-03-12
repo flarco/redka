@@ -45,7 +45,7 @@ To use PostgreSQL instead of SQLite:
 
 ```go
 import (
-    "github.com/nalgeon/redka"
+    "github.com/flarco/redka"
     _ "github.com/lib/pq"
 )
 

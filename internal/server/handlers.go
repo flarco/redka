@@ -4,9 +4,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/nalgeon/redka"
-	"github.com/nalgeon/redka/internal/command"
-	"github.com/nalgeon/redka/internal/redis"
+	"github.com/flarco/redka"
+	"github.com/flarco/redka/internal/command"
+	"github.com/flarco/redka/internal/redis"
 	"github.com/tidwall/redcon"
 )
 

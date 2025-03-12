@@ -1,6 +1,6 @@
 package key
 
-import "github.com/nalgeon/redka/internal/redis"
+import "github.com/flarco/redka/internal/redis"
 
 // Renames a key only when the target key name doesn't exist.
 // RENAMENX key newkey

@@ -1,9 +1,9 @@
 package zset
 
 import (
-	"github.com/nalgeon/redka/internal/parser"
-	"github.com/nalgeon/redka/internal/redis"
-	"github.com/nalgeon/redka/internal/sqlx"
+	"github.com/flarco/redka/internal/parser"
+	"github.com/flarco/redka/internal/redis"
+	"github.com/flarco/redka/internal/sqlx"
 )
 
 // Stores the union of multiple sorted sets in a key.

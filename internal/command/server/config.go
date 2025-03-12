@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/nalgeon/redka/internal/redis"
+	"github.com/flarco/redka/internal/redis"
 )
 
 // Container command for runtime configuration commands.

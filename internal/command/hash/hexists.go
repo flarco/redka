@@ -1,6 +1,6 @@
 package hash
 
-import "github.com/nalgeon/redka/internal/redis"
+import "github.com/flarco/redka/internal/redis"
 
 // Determines whether a field exists in a hash.
 // HEXISTS key field

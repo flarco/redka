@@ -3,8 +3,8 @@ package set
 import (
 	"testing"
 
-	"github.com/nalgeon/redka/internal/redis"
-	"github.com/nalgeon/redka/internal/testx"
+	"github.com/flarco/redka/internal/redis"
+	"github.com/flarco/redka/internal/testx"
 )
 
 func TestSIsMemberParse(t *testing.T) {

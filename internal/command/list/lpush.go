@@ -1,8 +1,8 @@
 package list
 
 import (
-	"github.com/nalgeon/redka/internal/parser"
-	"github.com/nalgeon/redka/internal/redis"
+	"github.com/flarco/redka/internal/parser"
+	"github.com/flarco/redka/internal/redis"
 )
 
 // Prepends an element to a list.

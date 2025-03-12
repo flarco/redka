@@ -1,6 +1,6 @@
 package hash
 
-import "github.com/nalgeon/redka/internal/redis"
+import "github.com/flarco/redka/internal/redis"
 
 // Returns all values in a hash.
 // HVALS key

@@ -5,7 +5,7 @@ package rzset
 import (
 	"database/sql"
 
-	"github.com/nalgeon/redka/internal/sqlx"
+	"github.com/flarco/redka/internal/sqlx"
 )
 
 // DB is a database-backed sorted set repository.

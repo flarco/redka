@@ -6,7 +6,7 @@ import (
 	"log"
 	"log/slog"
 
-	"github.com/nalgeon/redka"
+	"github.com/flarco/redka"
 	_ "github.com/tursodatabase/go-libsql"
 )
 

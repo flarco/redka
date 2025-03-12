@@ -1,6 +1,6 @@
 package key
 
-import "github.com/nalgeon/redka/internal/redis"
+import "github.com/flarco/redka/internal/redis"
 
 // Renames a key and overwrites the destination.
 // RENAME key newkey

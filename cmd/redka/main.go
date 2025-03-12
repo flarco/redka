@@ -19,9 +19,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/flarco/redka"
+	"github.com/flarco/redka/internal/server"
 	"github.com/mattn/go-sqlite3"
-	"github.com/nalgeon/redka"
-	"github.com/nalgeon/redka/internal/server"
 )
 
 // set by the build process

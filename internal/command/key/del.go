@@ -1,8 +1,8 @@
 package key
 
 import (
-	"github.com/nalgeon/redka/internal/parser"
-	"github.com/nalgeon/redka/internal/redis"
+	"github.com/flarco/redka/internal/parser"
+	"github.com/flarco/redka/internal/redis"
 )
 
 // Deletes one or more Keys.

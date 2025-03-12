@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nalgeon/redka/internal/redis"
+	"github.com/flarco/redka/internal/redis"
 	"github.com/tidwall/redcon"
 )
 

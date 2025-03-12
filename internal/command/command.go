@@ -5,15 +5,15 @@ package command
 import (
 	"strings"
 
-	"github.com/nalgeon/redka/internal/command/conn"
-	"github.com/nalgeon/redka/internal/command/hash"
-	"github.com/nalgeon/redka/internal/command/key"
-	"github.com/nalgeon/redka/internal/command/list"
-	"github.com/nalgeon/redka/internal/command/server"
-	"github.com/nalgeon/redka/internal/command/set"
-	str "github.com/nalgeon/redka/internal/command/string"
-	"github.com/nalgeon/redka/internal/command/zset"
-	"github.com/nalgeon/redka/internal/redis"
+	"github.com/flarco/redka/internal/command/conn"
+	"github.com/flarco/redka/internal/command/hash"
+	"github.com/flarco/redka/internal/command/key"
+	"github.com/flarco/redka/internal/command/list"
+	"github.com/flarco/redka/internal/command/server"
+	"github.com/flarco/redka/internal/command/set"
+	str "github.com/flarco/redka/internal/command/string"
+	"github.com/flarco/redka/internal/command/zset"
+	"github.com/flarco/redka/internal/redis"
 )
 
 // Parse parses a text representation of a command into a Cmd.

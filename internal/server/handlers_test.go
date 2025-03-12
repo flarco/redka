@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flarco/redka"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/nalgeon/redka"
 	"github.com/tidwall/redcon"
 )
 

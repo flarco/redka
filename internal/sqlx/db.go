@@ -143,7 +143,7 @@ func (d *DB[T]) applySettings(pragma map[string]string) error {
 	// one connection), but it is for d.RO (which has multiple connections).
 	// Still, it's better than nothing.
 	//
-	// See https://github.com/nalgeon/redka/issues/28 for more details.
+	// See https://github.com/flarco/redka/issues/28 for more details.
 
 	var query strings.Builder
 	for name, val := range pragma {

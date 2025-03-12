@@ -1,6 +1,6 @@
 package hash
 
-import "github.com/nalgeon/redka/internal/redis"
+import "github.com/flarco/redka/internal/redis"
 
 // Sets the value of a field in a hash only when the field doesn't exist.
 // HSETNX key field value

@@ -3,8 +3,8 @@ package server
 import (
 	"math/rand"
 
-	"github.com/nalgeon/redka/internal/parser"
-	"github.com/nalgeon/redka/internal/redis"
+	"github.com/flarco/redka/internal/parser"
+	"github.com/flarco/redka/internal/redis"
 )
 
 var lolwutAnswers = []string{

@@ -1,6 +1,6 @@
 package hash
 
-import "github.com/nalgeon/redka/internal/redis"
+import "github.com/flarco/redka/internal/redis"
 
 // Returns the number of fields in a hash.
 // HLEN key

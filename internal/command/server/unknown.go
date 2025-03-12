@@ -1,6 +1,6 @@
 package server
 
-import "github.com/nalgeon/redka/internal/redis"
+import "github.com/flarco/redka/internal/redis"
 
 // Unknown is a placeholder for unknown commands.
 // Always returns an error.

@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/flarco/redka"
+	"github.com/flarco/redka/internal/command"
+	"github.com/flarco/redka/internal/redis"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/nalgeon/redka"
-	"github.com/nalgeon/redka/internal/command"
-	"github.com/nalgeon/redka/internal/redis"
 )
 
 const dbURI = "file:/data.db?vfs=memdb"

@@ -1,8 +1,8 @@
 package set
 
 import (
-	"github.com/nalgeon/redka/internal/core"
-	"github.com/nalgeon/redka/internal/redis"
+	"github.com/flarco/redka/internal/core"
+	"github.com/flarco/redka/internal/redis"
 )
 
 // Returns a random member from a set after removing it.

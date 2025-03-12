@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nalgeon/redka"
-	"github.com/nalgeon/redka/internal/core"
-	"github.com/nalgeon/redka/internal/rkey"
-	"github.com/nalgeon/redka/internal/testx"
+	"github.com/flarco/redka"
+	"github.com/flarco/redka/internal/core"
+	"github.com/flarco/redka/internal/rkey"
+	"github.com/flarco/redka/internal/testx"
 )
 
 func TestCount(t *testing.T) {

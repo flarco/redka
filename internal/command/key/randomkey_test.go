@@ -4,9 +4,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/nalgeon/redka/internal/core"
-	"github.com/nalgeon/redka/internal/redis"
-	"github.com/nalgeon/redka/internal/testx"
+	"github.com/flarco/redka/internal/core"
+	"github.com/flarco/redka/internal/redis"
+	"github.com/flarco/redka/internal/testx"
 )
 
 func TestRandomKeyParse(t *testing.T) {

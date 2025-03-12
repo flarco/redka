@@ -1,8 +1,8 @@
 package hash
 
 import (
-	"github.com/nalgeon/redka/internal/core"
-	"github.com/nalgeon/redka/internal/redis"
+	"github.com/flarco/redka/internal/core"
+	"github.com/flarco/redka/internal/redis"
 )
 
 // Returns the value of a field in a hash.

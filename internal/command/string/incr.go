@@ -1,6 +1,6 @@
 package string
 
-import "github.com/nalgeon/redka/internal/redis"
+import "github.com/flarco/redka/internal/redis"
 
 // Increments the integer value of a key by one.
 // Uses 0 as initial value if the key doesn't exist.

@@ -1,6 +1,6 @@
 package set
 
-import "github.com/nalgeon/redka/internal/redis"
+import "github.com/flarco/redka/internal/redis"
 
 // Returns the number of members in a set.
 // SCARD key

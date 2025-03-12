@@ -1,6 +1,6 @@
 package rset
 
-import "github.com/nalgeon/redka/internal/core"
+import "github.com/flarco/redka/internal/core"
 
 // Scanner is the iterator for set items.
 // Stops when there are no more items or an error occurs.

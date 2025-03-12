@@ -5,10 +5,10 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/nalgeon/redka"
-	"github.com/nalgeon/redka/internal/core"
-	"github.com/nalgeon/redka/internal/rhash"
-	"github.com/nalgeon/redka/internal/testx"
+	"github.com/flarco/redka"
+	"github.com/flarco/redka/internal/core"
+	"github.com/flarco/redka/internal/rhash"
+	"github.com/flarco/redka/internal/testx"
 )
 
 func TestDelete(t *testing.T) {

@@ -15,14 +15,14 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/nalgeon/redka/internal/core"
-	"github.com/nalgeon/redka/internal/rhash"
-	"github.com/nalgeon/redka/internal/rkey"
-	"github.com/nalgeon/redka/internal/rlist"
-	"github.com/nalgeon/redka/internal/rset"
-	"github.com/nalgeon/redka/internal/rstring"
-	"github.com/nalgeon/redka/internal/rzset"
-	"github.com/nalgeon/redka/internal/sqlx"
+	"github.com/flarco/redka/internal/core"
+	"github.com/flarco/redka/internal/rhash"
+	"github.com/flarco/redka/internal/rkey"
+	"github.com/flarco/redka/internal/rlist"
+	"github.com/flarco/redka/internal/rset"
+	"github.com/flarco/redka/internal/rstring"
+	"github.com/flarco/redka/internal/rzset"
+	"github.com/flarco/redka/internal/sqlx"
 )
 
 // A TypeID identifies the type of the key and thus
@@ -290,7 +290,7 @@ func (db *DB) ZSet() *rzset.DB {
 // Update executes a function within a writable transaction.
 // See the [tx] example for details.
 //
-// [tx]: https://github.com/nalgeon/redka/blob/main/example/tx/main.go
+// [tx]: https://github.com/flarco/redka/blob/main/example/tx/main.go
 func (db *DB) Update(f func(tx *Tx) error) error {
 	return db.DB.Update(f)
 }
@@ -298,7 +298,7 @@ func (db *DB) Update(f func(tx *Tx) error) error {
 // UpdateContext executes a function within a writable transaction.
 // See the [tx] example for details.
 //
-// [tx]: https://github.com/nalgeon/redka/blob/main/example/tx/main.go
+// [tx]: https://github.com/flarco/redka/blob/main/example/tx/main.go
 func (db *DB) UpdateContext(ctx context.Context, f func(tx *Tx) error) error {
 	return db.DB.UpdateContext(ctx, f)
 }
@@ -306,7 +306,7 @@ func (db *DB) UpdateContext(ctx context.Context, f func(tx *Tx) error) error {
 // View executes a function within a read-only transaction.
 // See the [tx] example for details.
 //
-// [tx]: https://github.com/nalgeon/redka/blob/main/example/tx/main.go
+// [tx]: https://github.com/flarco/redka/blob/main/example/tx/main.go
 func (db *DB) View(f func(tx *Tx) error) error {
 	return db.DB.View(f)
 }
@@ -314,7 +314,7 @@ func (db *DB) View(f func(tx *Tx) error) error {
 // ViewContext executes a function within a read-only transaction.
 // See the [tx] example for details.
 //
-// [tx]: https://github.com/nalgeon/redka/blob/main/example/tx/main.go
+// [tx]: https://github.com/flarco/redka/blob/main/example/tx/main.go
 func (db *DB) ViewContext(ctx context.Context, f func(tx *Tx) error) error {
 	return db.DB.ViewContext(ctx, f)
 }
@@ -369,7 +369,7 @@ func (db *DB) startBgManager() *time.Ticker {
 //
 // See the [tx] example for details.
 //
-// [tx]: https://github.com/nalgeon/redka/blob/main/example/tx/main.go
+// [tx]: https://github.com/flarco/redka/blob/main/example/tx/main.go
 type Tx struct {
 	tx     sqlx.Tx
 	hashTx *rhash.Tx

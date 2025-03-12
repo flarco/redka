@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nalgeon/redka/internal/redis"
-	"github.com/nalgeon/redka/internal/testx"
+	"github.com/flarco/redka/internal/redis"
+	"github.com/flarco/redka/internal/testx"
 )
 
 func TestLolwutParse(t *testing.T) {

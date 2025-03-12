@@ -1,6 +1,6 @@
 package server
 
-import "github.com/nalgeon/redka/internal/redis"
+import "github.com/flarco/redka/internal/redis"
 
 // Dummy command that always returns OK.
 type OK struct {

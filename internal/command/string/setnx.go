@@ -1,6 +1,6 @@
 package string
 
-import "github.com/nalgeon/redka/internal/redis"
+import "github.com/flarco/redka/internal/redis"
 
 // Set the string value of a key only when the key doesn't exist.
 // SETNX key value

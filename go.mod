@@ -1,4 +1,4 @@
-module github.com/nalgeon/redka
+module github.com/flarco/redka
 
 go 1.22
 

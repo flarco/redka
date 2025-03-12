@@ -6,8 +6,8 @@ import (
 	"log"
 	"log/slog"
 
+	"github.com/flarco/redka"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/nalgeon/redka"
 )
 
 func main() {

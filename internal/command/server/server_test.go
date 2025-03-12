@@ -3,8 +3,8 @@ package server
 import (
 	"testing"
 
-	"github.com/nalgeon/redka"
-	"github.com/nalgeon/redka/internal/redis"
+	"github.com/flarco/redka"
+	"github.com/flarco/redka/internal/redis"
 )
 
 func getDB(tb testing.TB) (*redka.DB, redis.Redka) {

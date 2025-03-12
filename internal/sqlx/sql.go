@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nalgeon/redka/internal/core"
+	"github.com/flarco/redka/internal/core"
 )
 
 // Sorting direction.

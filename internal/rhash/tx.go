@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/nalgeon/redka/internal/core"
-	"github.com/nalgeon/redka/internal/sqlx"
+	"github.com/flarco/redka/internal/core"
+	"github.com/flarco/redka/internal/sqlx"
 )
 
 const (
